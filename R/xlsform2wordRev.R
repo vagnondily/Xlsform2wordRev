@@ -349,6 +349,3 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, tem
   invisible(out_docx)
 }
 
-
-xlsform_to_wordRev(
-)
