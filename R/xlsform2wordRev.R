@@ -363,6 +363,21 @@ xlsform_to_wordRev9 <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, te
   message(glue("--- Processus terminé ---"))
   final_path_display <- tryCatch(normalizePath(out_docx, winslash = '/'), error = function(e) out_docx)
   message(glue("✅ Document généré : {final_path_display}"))
+  # --- Code pour ouvrir automatiquement le dossier d'output ---
+  
+  # Détecte le système d'exploitation et utilise la commande appropriée
+  if (Sys.info()["sysname"] == "Windows") {
+    # Commande pour ouvrir l'explorateur de fichiers Windows
+    shell.exec(output_dir)
+  } else if (Sys.info()["sysname"] == "Darwin") {
+    # Commande pour ouvrir le Finder sur macOS
+    system(glue("open {shQuote(output_dir)}"))
+  } else if (.Platform$OS.type == "unix") {
+    # Commande pour ouvrir le gestionnaire de fichiers sur Linux (gnome-open, xdg-open)
+    system(glue("xdg-open {shQuote(output_dir)}"))
+  }
+  # -----------------------------------------------------------
   invisible(out_docx)
 }
+
 
