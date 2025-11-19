@@ -1,6 +1,0 @@
-export(xlsform2wordRev)
-importFrom(dplyr,filter,mutate,group_by,summarise,first,arrange)
-importFrom(readxl,read_excel,excel_sheets)
-importFrom(stringr,str_detect,str_trim,str_split,str_match,str_split_fixed)
-importFrom(officer,read_docx,body_add_par,body_add_fpar,fp_text,ftext,fpar,fp_par)
-importFrom(rlang,sym)
