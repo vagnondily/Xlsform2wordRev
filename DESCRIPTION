@@ -1,0 +1,29 @@
+Package: xlsform2wordR
+Type: Package
+Title: Convert XLSForm to Word with Theme-Grid, Language-Aware Choices and Conditions
+Version: 0.1.1
+Authors@R: c(
+    person(given = "Manantsoa", family = "Vagnondily", role = c("aut","cre"),
+           email = "you@example.org")
+)
+Description: Read an XLSForm and produce a formatted Word (.docx) questionnaire. 
+    Supports 'theme-grid' (settings$style), highlights relevant conditions in red,
+    and substitutes choice names by localized labels based on survey label language.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Depends: R (>= 4.1)
+Imports:
+    readxl,
+    officer,
+    dplyr,
+    stringr,
+    rlang
+Suggests:
+    flextable,
+    roxygen2,
+    remotes
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+URL: https://github.com/vagnondily/Xlsform2wordR
+BugReports: https://github.com/vagnondily/Xlsform2wordR/issues
