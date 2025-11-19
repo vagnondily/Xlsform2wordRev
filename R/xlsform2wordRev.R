@@ -210,7 +210,9 @@ render_question <- function(doc, row, number, label_col_name, hint_col_name, cho
   q_type <- tolower(row$type %||% "")
   q_name <- row$name %||% ""
   q_lab  <- str_replace_all(row[[label_col_name]] %||% q_name, "<.*?>", "") 
-  
+  q_lab <- str_replace_all(q_lab, "[#<][[:punct:]\\s]*span style=\\s*'.*?'\\s*>", "")
+  q_lab <- str_replace_all(q_lab, "</span\\s*>", "")
+  q_lab <- str_trim(str_replace_all(q_lab, "^[#]+\\s*", ""))
   if (is.na(q_name) || q_name %in% EXCLUDE_NAMES) return(doc)
   
   if (q_type == "note") {
@@ -229,7 +231,8 @@ render_question <- function(doc, row, number, label_col_name, hint_col_name, cho
   if (!is.na(rel) && nzchar(rel)) { tr <- translate_relevant(rel, lab_map, full_choices_sheet); doc <- body_add_fpar(doc, fpar(ftext("Afficher si : ", fp_relevant), ftext(tr, fp_relevant), fp_p = p_q_indent_fixed)) }
   if (!is.na(h) && nzchar(h)) { doc <- body_add_fpar(doc, fpar(ftext(h, fp_hint), fp_p = p_q_indent_fixed)) }
   if (!str_detect(q_type, "^note")) {
-      doc <- body_add_par(doc, "") }
+      doc <- body_add_par(doc, "") 
+  }
   if (str_starts(q_type, "select_one")) { 
     doc <- body_add_fpar(doc, fpar(ftext("Choisir la réponse parmi la liste ci-bas", fp_txt(size = FS_MISC, italic = TRUE)), fp_p = p_q_indent_fixed))
     ln <- str_trim(sub("^select_one\\s+", "", q_type));
@@ -240,7 +243,7 @@ render_question <- function(doc, row, number, label_col_name, hint_col_name, cho
     ln <- str_trim(sub("^select_multiple\\s+", "", q_type)); 
     doc <- add_choice_lines(doc, choices_map, ln, symbol = "☐"); 
   } 
-  else if (str_detect(q_type, "^note")) { } 
+  else if (str_detect(q_type, "^note")) { doc <- body_add_par(doc, "")  } 
   else { 
     placeholder <- "Réponse : [insérer votre réponse ici]"
     if (str_detect(q_type, "integer")) { placeholder <- "Réponse : [insérer un entier]" } 
@@ -330,6 +333,7 @@ xlsform_to_wordRev <- function(xlsx = NULL, output_dir = NULL, template_docx = N
   # -----------------------------------------------------------
   invisible(out_docx)
 }
+
 
 
 
