@@ -236,28 +236,32 @@ render_question <- function(doc, row, number, label_col_name, hint_col_name, cho
 # Fonction principale 
 # ---------------------------------------------------------------------
 
-xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, template_docx = TEMPLATE_DOCX, logo_path = LOGO_PATH, doc_title = NULL) {
+xlsform_to_wordRev9 <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, template_docx = TEMPLATE_DOCX, logo_path = LOGO_PATH, doc_title = NULL) {
   message(glue("--- Démarrage du processus de génération Word ---"))
   
-# Gestion du chemin de sortie par défaut
+  # Gestion du chemin de sortie par défaut
   if (is.null(output_dir)) {
     if (!is.null(xlsx) && file.exists(xlsx)) {
-        output_dir <- dirname(xlsx)
+      output_dir <- dirname(xlsx)
     } else {
-        output_dir <- file.path(path.expand("~"), "Downloads")
+      output_dir <- file.path(path.expand("~"), "Downloads")
     }
   }
+  xlsx          <- xlsx %||% XLSFORM_PATH
+  output_dir    <- output_dir %||% OUTPUT_DIR %||% file.path(path.expand("~"), "Downloads")
+  template_docx <- template_docx %||% TEMPLATE_DOCX
+  logo_path     <- logo_path %||% LOGO_PATH
   
-# Sélection fichier si non fourni
+    # Sélection fichier si non fourni
   if (is.null(xlsx)) {
     message("Veuillez sélectionner le fichier XLSForm (.xlsx)...")
     tryCatch({ xlsx <- file.choose() }, error = function(e) { stop("Sélection du fichier annulée ou échouée.") })
     message(glue("Fichier sélectionné : {basename(xlsx)}"))
   }
-   
+  
   if (!file.exists(xlsx)) stop("Fichier XLSForm introuvable : ", xlsx)
   message(glue("Lecture de l'XLSForm depuis: {basename(xlsx)}"))
-# Dossier de sortie = même dossier que XLSForm si NULL  
+  # Dossier de sortie = même dossier que XLSForm si NULL  
   
   
   survey   <- read_excel(xlsx, sheet = "survey")
@@ -361,11 +365,4 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, tem
   message(glue("✅ Document généré : {final_path_display}"))
   invisible(out_docx)
 }
-
-
-
-
-
-
-
 
