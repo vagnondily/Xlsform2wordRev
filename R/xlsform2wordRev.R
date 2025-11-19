@@ -232,18 +232,23 @@ render_question <- function(doc, row, number, label_col_name, hint_col_name, cho
 # Fonction principale 
 # ---------------------------------------------------------------------
 
-xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = NULL, template_docx = TEMPLATE_DOCX, logo_path = LOGO_PATH, doc_title = NULL) {
+# ---------------------------------------------------------------------
+# Fonction principale 
+# ---------------------------------------------------------------------
+
+xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, template_docx = TEMPLATE_DOCX, logo_path = LOGO_PATH, doc_title = NULL) {
   message(glue("--- Démarrage du processus de génération Word ---"))
-# Sélection fichier si non fourni
-if (is.null(output_dir)) {
-    # Si le chemin de sortie n'a pas été fourni, on essaie d'utiliser le répertoire du fichier XLSX
+  
+# Gestion du chemin de sortie par défaut
+  if (is.null(output_dir)) {
     if (!is.null(xlsx) && file.exists(xlsx)) {
         output_dir <- dirname(xlsx)
     } else {
-        # Fallback par défaut si ni xlsx ni output_dir n'est fourni
         output_dir <- file.path(path.expand("~"), "Downloads")
     }
   }
+  
+# Sélection fichier si non fourni
   if (is.null(xlsx)) {
     message("Veuillez sélectionner le fichier XLSForm (.xlsx)...")
     tryCatch({ xlsx <- file.choose() }, error = function(e) { stop("Sélection du fichier annulée ou échouée.") })
@@ -300,7 +305,6 @@ if (is.null(output_dir)) {
   choices <- choices %>% 
     mutate_all(as.character) %>% 
     mutate_all(~ifelse(is.na(.), NA_character_, .)) %>%
-    # Nettoyage agressif ET conversion explicite en caractère
     mutate(list_name = as.character(str_trim(str_replace_all(tolower(list_name), "[[:space:]]+", ""))))
   
   label_col_choices <- detect_label_col(choices)
