@@ -232,11 +232,17 @@ render_question <- function(doc, row, number, label_col_name, hint_col_name, cho
 # Fonction principale 
 # ---------------------------------------------------------------------
 
-xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, "Downloads", template_docx = TEMPLATE_DOCX, logo_path = LOGO_PATH, doc_title = NULL) {
+xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, template_docx = TEMPLATE_DOCX, logo_path = LOGO_PATH, doc_title = NULL) {
   message(glue("--- Démarrage du processus de génération Word ---"))
 # Sélection fichier si non fourni
-  if (is.null(OUTPUT_DIR)) {
-    output_dir <- dirname(xlsx)
+if (is.null(output_dir)) {
+    # Si le chemin de sortie n'a pas été fourni, on essaie d'utiliser le répertoire du fichier XLSX
+    if (!is.null(xlsx) && file.exists(xlsx)) {
+        output_dir <- dirname(xlsx)
+    } else {
+        # Fallback par défaut si ni xlsx ni output_dir n'est fourni
+        output_dir <- file.path(path.expand("~"), "Downloads")
+    }
   }
   if (is.null(xlsx)) {
     message("Veuillez sélectionner le fichier XLSForm (.xlsx)...")
@@ -351,6 +357,7 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, "Do
   message(glue("✅ Document généré : {final_path_display}"))
   invisible(out_docx)
 }
+
 
 
 
