@@ -37,6 +37,7 @@ remotes::install_local("/chemin/vers/xlsform2wordRev", upgrade = "never")
 ## Utilisation
 
 ```R
+library(xlsform2wordRev)
 xlsform_to_wordRev()
 
 ```
