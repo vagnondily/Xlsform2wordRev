@@ -232,7 +232,7 @@ render_question <- function(doc, row, number, label_col_name, hint_col_name, cho
 # Fonction principale 
 # ---------------------------------------------------------------------
 
-xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = NULL, template_docx = TEMPLATE_DOCX, logo_path = LOGO_PATH, doc_title = NULL) {
+xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, template_docx = TEMPLATE_DOCX, logo_path = LOGO_PATH, doc_title = NULL) {
   message(glue("--- Démarrage du processus de génération Word ---"))
 # Sélection fichier si non fourni
   if (is.null(xlsx)) {
@@ -350,6 +350,7 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = NULL, template_
   message(glue("✅ Document généré : {final_path_display}"))
   invisible(out_docx)
 }
+
 
 
 
