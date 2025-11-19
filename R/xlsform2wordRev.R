@@ -368,7 +368,7 @@ xlsform_to_wordRev9 <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, te
   # Détecte le système d'exploitation et utilise la commande appropriée
   if (Sys.info()["sysname"] == "Windows") {
     # Commande pour ouvrir l'explorateur de fichiers Windows
-    shell.exec(output_dir)
+    shell.exec(OUTPUT_DIR)
   } else if (Sys.info()["sysname"] == "Darwin") {
     # Commande pour ouvrir le Finder sur macOS
     system(glue("open {shQuote(output_dir)}"))
@@ -379,5 +379,6 @@ xlsform_to_wordRev9 <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, te
   # -----------------------------------------------------------
   invisible(out_docx)
 }
+
 
 
