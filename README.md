@@ -7,7 +7,7 @@ Le script est conçu pour générer une documentation de haute qualité du quest
 *   Numérotation hiérarchique des sections et questions.
 *   Formatage spécifique pour les différents types de questions (texte, numérique, date, sélection).
 *   Inclusion visuelle des listes de choix (options).
-*   Traduction humaine des logiques de pertinence (`relevant logic`).
+*   Traduction des logiques de pertinence (`relevant logic`).
 *   Personnalisation des styles et ajout d'un logo.
 
 ## Prérequis
