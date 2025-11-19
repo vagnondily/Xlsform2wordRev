@@ -129,8 +129,16 @@ translate_relevant <- function(expr, labels, choices) {
   
   # 3.Remplacement des codes de choix seuls (ex: '= '1'', '!= '0'') par leur label (pour select_one)
   # Cette étape gère les comparaisons simples.
-  txt <- stringr::str_replace_all(txt, "'([^']+)'", function(x){ m <- stringr::str_match(x, "'([^']+)'"); code <- m[,2]; vapply(code, get_choice_label, character(1)) })
-
+  txt <- stringr::str_replace_all(txt, "=\\s*'([^']+)'", function(x){ 
+  m <- stringr::str_match(x, "=\\s*'([^']+)'"); 
+  code <- m[,2]; 
+  vapply(code, function(c) sprintf("= '%s'", get_choice_label(c)), character(1)) 
+})
+  txt <- stringr::str_replace_all(txt, "!=\\s*'([^']+)'", function(x){ 
+  m <- stringr::str_match(x, "!=\\s*'([^']+)'"); 
+  code <- m[,2]; 
+  vapply(code, function(c) sprintf("≠ '%s'", get_choice_label(c)), character(1)) 
+})
   # 4. Traitement des opérateurs logiques et autres expressions
   txt <- stringr::str_replace_all(txt, "\\bandand\\b", "et"); 
   txt <- stringr::str_replace_all(txt, "\\bor\\b",  "ou"); 
@@ -220,7 +228,8 @@ render_question <- function(doc, row, number, label_col_name, hint_col_name, cho
   
   if (!is.na(rel) && nzchar(rel)) { tr <- translate_relevant(rel, lab_map, full_choices_sheet); doc <- body_add_fpar(doc, fpar(ftext("Afficher si : ", fp_relevant), ftext(tr, fp_relevant), fp_p = p_q_indent_fixed)) }
   if (!is.na(h) && nzchar(h)) { doc <- body_add_fpar(doc, fpar(ftext(h, fp_hint), fp_p = p_q_indent_fixed)) }
-  
+  if (!str_detect(q_type, "^note")) {
+      doc <- body_add_par(doc, "") 
   if (str_starts(q_type, "select_one")) { 
     doc <- body_add_fpar(doc, fpar(ftext("Choisir la réponse parmi la liste ci-bas", fp_txt(size = FS_MISC, italic = TRUE)), fp_p = p_q_indent_fixed))
     ln <- str_trim(sub("^select_one\\s+", "", q_type));
@@ -321,4 +330,5 @@ xlsform_to_wordRev <- function(xlsx = NULL, output_dir = NULL, template_docx = N
   # -----------------------------------------------------------
   invisible(out_docx)
 }
+
 
