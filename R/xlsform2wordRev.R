@@ -96,6 +96,7 @@ detect_hint_col <- function(df) {
 translate_relevant <- function(expr, labels, choices) {
   if (is.null(expr) || is.na(expr) || !nzchar(trimws(expr))) return(NA_character_)
   txt <- expr
+  
   get_choice_label <- function(code){
     # Filtrer spécifiquement pour le code donné
     r <- choices %>% filter(name == code)
@@ -112,13 +113,35 @@ translate_relevant <- function(expr, labels, choices) {
       return(lab) # Renvoie une seule valeur de longueur 1
     } else return(as.character(code))
   }
-  get_var_label <- function(v){ val <- tryCatch(labels[[v]], error = function(e) NULL); if(is.null(val) || is.na(val) || !nzchar(val)) return(as.character(v)) else return(as.character(val)) }
+  
+  get_var_label <- function(v){ 
+    val <- tryCatch(labels[[v]], error = function(e) NULL)
+    if(is.null(val) || is.na(val) || !nzchar(val)) return(as.character(v)) else return(as.character(val)) 
+  }
   
   # Les fonctions de remplacement utilisent vapply qui gère correctement les vecteurs si les sous-fonctions sont scalaires
+  # 1. Traitement standard de selected() et not(selected()) (pour select_multiple)
   txt <- stringr::str_replace_all(txt, "selected\\s*\\(\\s*\\$\\{[^}]+\\}\\s*,\\s*'[^']+'\\s*\\)", function(x){ m <- stringr::str_match(x, "selected\\s*\\(\\s*\\$\\{([^}]+)\\}\\s*,\\s*'([^']+)'\\s*\\)"); vars <- m[,2]; codes <- m[,3]; vapply(seq_along(vars), function(i){ sprintf("%s contient '%s'", get_var_label(vars[i]), get_choice_label(codes[i]))}, character(1)) })
   txt <- stringr::str_replace_all(txt, "not\\s*\\(\\s*selected\\s*\\(\\s*\\$\\{[^}]+\\}\\s*,\\s*'[^']+?'\\s*\\)\\s*\\)", function(x){ m <- stringr::str_match(x, "not\\s*\\(\\s*selected\\s*\\(\\s*\\$\\{([^}]+)\\}\\s*,\\s*'([^']+)'\\s*\\)\\s*\\)"); vars <- m[,2]; codes <- m[,3]; vapply(seq_along(vars), function(i){ sprintf("%s ne contient pas '%s'", get_var_label(vars[i]), get_choice_label(codes[i]))}, character(1)) })
-  txt <- stringr::str_replace_all(txt, "\\$\\{[^}]+\\}", function(x){ m <- stringr::str_match(x, "\\$\\{([^}]+)\\}"); vars <- m[,2]; vapply(vars, get_var_label, character(1)) })
-  txt <- stringr::str_replace_all(txt, "\\bandand\\b", "et"); txt <- stringr::str_replace_all(txt, "\\bor\\b",  "ou"); txt <- stringr::str_replace_all(txt, "\\bnot\\b", "non"); txt <- stringr::str_replace_all(txt, "=\\s*'1'",  " = 'Oui'"); txt <- stringr::str_replace_all(txt, "=\\s*'0'",  " = 'Non'"); txt <- stringr::str_replace_all(txt, "!=\\s*'1'", " ≠ 'Oui'"); txt <- stringr::str_replace_all(txt, "!=\\s*'0'", " ≠ 'Non'"); txt <- stringr::str_replace_all(txt, "count-selected\\s*\\(\\s*[^\\)]+\\)\\s*>=\\s*1", function(x){ m <- stringr::str_match(x, "count-selected\\s*\\(\\s*(.+?)\\s*\\)\\s*>=\\s*1"); v <- m[,2]; vapply(v, function(z) sprintf("au moins une option cochée pour %s", z), character(1)) })
+  
+  # 2. Remplacement des noms de variables (${...}) par leur label
+  txt <- stringr::str_replace_all(txt, "\\$\\{([^}]+)\\}", function(x){ m <- stringr::str_match(x, "\\$\\{([^}]+)\\}"); vars <- m[,2]; vapply(vars, get_var_label, character(1)) })
+  
+  # 3.Remplacement des codes de choix seuls (ex: '= '1'', '!= '0'') par leur label (pour select_one)
+  # Cette étape gère les comparaisons simples.
+  txt <- stringr::str_replace_all(txt, "'([^']+)'", function(x){ m <- stringr::str_match(x, "'([^']+)'"); code <- m[,2]; vapply(code, get_choice_label, character(1)) })
+
+  # 4. Traitement des opérateurs logiques et autres expressions
+  txt <- stringr::str_replace_all(txt, "\\bandand\\b", "et"); 
+  txt <- stringr::str_replace_all(txt, "\\bor\\b",  "ou"); 
+  txt <- stringr::str_replace_all(txt, "\\bnot\\b", "non"); 
+  
+  # Note: Les remplacements spécifiques '1'/'0' ne sont pas nécessaires
+  # car '1' et '0' seront maintenant traduits par 'Oui' et 'Non' via get_choice_label() s'ils existent dans vos choix.
+  # Je les laisse commentés au cas où vous en auriez besoin.
+  # txt <- stringr::str_replace_all(txt, "=\\s*'1'",  " = 'Oui'"); txt <- stringr::str_replace_all(txt, "=\\s*'0'",  " = 'Non'"); txt <- stringr::str_replace_all(txt, "!=\\s*'1'", " ≠ 'Oui'"); txt <- stringr::str_replace_all(txt, "!=\\s*'0'", " ≠ 'Non'"); 
+  
+  txt <- stringr::str_replace_all(txt, "count-selected\\s*\\(\\s*[^\\)]+\\)\\s*>=\\s*1", function(x){ m <- stringr::str_match(x, "count-selected\\s*\\(\\s*(.+?)\\s*\\)\\s*>=\\s*1"); v <- m[,2]; vapply(v, function(z) sprintf("au moins une option cochée pour %s", z), character(1)) })
   txt
 }
 
@@ -298,3 +321,4 @@ xlsform_to_wordRev <- function(xlsx = NULL, output_dir = NULL, template_docx = N
   # -----------------------------------------------------------
   invisible(out_docx)
 }
+
