@@ -47,7 +47,7 @@ EXCLUDE_NAMES <- c("start","end","today","deviceid","username","instanceID","ins
 XLSFORM_PATH   <- NULL
 TEMPLATE_DOCX  <- ""  
 LOGO_PATH  <- "cp_logo.png"    
-#OUTPUT_DIR <- file.path(path.expand("~"), "Downloads")
+OUTPUT_DIR <- file.path(path.expand("~"), "Downloads")
 
 
 # ---------------------------------------------------------------------
@@ -350,5 +350,6 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = NULL, template_
   message(glue("✅ Document généré : {final_path_display}"))
   invisible(out_docx)
 }
+
 
 
