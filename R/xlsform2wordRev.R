@@ -325,8 +325,8 @@ render_question <- function(doc, row, number, label_col_name, hint_col_name, cho
     else if (str_detect(q_type, "decimal")) { placeholder <- "Réponse : [insérer un décimal]" }
     else if (str_detect(q_type, "date")) { placeholder <- "Réponse : [insérer une date]" }
     else if (str_detect(q_type, "geopoint")) { placeholder <- "Réponse : [capturer les coordonnées GPS]" }
-    else if (str_detect(q_type, "image")) { placeholder <- "Réponse : [prendre une photo]" }
-    
+    else if (str_detect(q_type, "image")) { placeholder <- "Réponse : [prendre une photo] ou inserer une image" }
+    else if (str_detect(q_type, "photo")) { placeholder <- "Réponse : [prendre une photo]" }
     doc <- add_placeholder_box(doc, placeholder)
   }
   
@@ -469,6 +469,7 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, tem
 }
 #library(xlsform2wordRev)
 # xlsform_to_wordRev()
+
 
 
 
