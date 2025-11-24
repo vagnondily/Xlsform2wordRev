@@ -202,10 +202,6 @@ translate_relevant <- function(expr, labels, choices, df_survey) {
   txt <- stringr::str_replace_all(txt, "\\s*<\\s*", " est inférieur à ");
   txt <- stringr::str_replace_all(txt, "\\s*<=\\s*", " est inférieur ou égal à ");
   
-  # Remplacement des valeurs binaires Oui/Non
-  txt <- stringr::str_replace_all(txt, "'1'", "'Oui'"); 
-  txt <- stringr::str_replace_all(txt, "'0'", "'Non'"); 
-  
   # Gère count-selected >= 1
   txt <- stringr::str_replace_all(txt, "count-selected\\s*\\(\\s*[^\\)]+\\)\\s*>=\\s*1", function(x){ 
     m <- stringr::str_match(x, "count-selected\\s*\\(\\s*(.+?)\\s*\\)\\s*>=\\s*1")
@@ -469,6 +465,7 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, tem
 }
 #library(xlsform2wordRev)
 # xlsform_to_wordRev()
+
 
 
 
