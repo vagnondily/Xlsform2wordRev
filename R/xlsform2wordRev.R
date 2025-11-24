@@ -1,5 +1,5 @@
 # =====================================================================
-# XLSForm -> Word (Rendu Word) - Script final et débogué et corrigé V2
+# XLSForm -> Word (Rendu Word) - Script corrigé V2
 # =====================================================================
 
 suppressPackageStartupMessages({
@@ -41,7 +41,7 @@ FS_MISC     <- 10
 FS_Q_BLUE   <- 11  
 FS_Q_GREY   <- 9   
 
-EXCLUDE_TYPES <- c("calculate","start","end","today","deviceid","subscriberid","simserial","phonenumber","username","instanceid","end_group", "end group", "end_repeat", "end repeat")
+EXCLUDE_TYPES <- c("calculate","start","end","today","deviceid","subscriberid","simserial","phonenumber","username","instanceid","end_group", "end group")
 EXCLUDE_NAMES <- c("start","end","today","deviceid","username","instanceID","instanceid")
 
 XLSFORM_PATH   <- NULL
@@ -107,9 +107,6 @@ detect_hint_col <- function(df) {
 
 library(dplyr)
 library(stringr)
-# Assurez-vous que la fonction detect_label_col est définie quelque part avant d'exécuter ceci
-
-# Assurez-vous que dplyr et stringr sont chargés : library(dplyr); library(stringr)
 
 translate_relevant <- function(expr, labels, choices, df_survey) {
   if (is.null(expr) || is.na(expr) || !nzchar(trimws(expr))) return(NA_character_)
@@ -162,10 +159,7 @@ translate_relevant <- function(expr, labels, choices, df_survey) {
       return(str_trim(list_name))
     } else { return(NA_character_) }
   }
-  
-  # --- Substitutions principales ---
-  # Le reste du code effectue les remplacements d'opérateurs et de fonctions.
-  
+    
   # Remplacement pour 'selected()'
   txt <- stringr::str_replace_all(txt, "selected\\s*\\(\\s*\\$\\{[^}]+\\}\\s*,\\s*'[^']+'\\s*\\)", function(x){ 
     m <- stringr::str_match(x, "selected\\s*\\(\\s*\\$\\{([^}]+)\\}\\s*,\\s*'([^']+)'\\s*\\)")
@@ -208,9 +202,6 @@ translate_relevant <- function(expr, labels, choices, df_survey) {
   txt <- stringr::str_replace_all(txt, "\\s*<\\s*", " est inférieur à ");
   txt <- stringr::str_replace_all(txt, "\\s*<=\\s*", " est inférieur ou égal à ");
   
-  # Note : Les symboles '*' et '?' ne sont pas traduits ici, 
-  # mais dans votre exemple, ils ont été traduits car ils étaient dans la mauvaise fonction.
-  
   # Remplacement des valeurs binaires Oui/Non
   txt <- stringr::str_replace_all(txt, "'1'", "'Oui'"); 
   txt <- stringr::str_replace_all(txt, "'0'", "'Non'"); 
@@ -228,9 +219,6 @@ translate_relevant <- function(expr, labels, choices, df_survey) {
   
   return(txt)
 }
-
-
-
 
 # ---------------------------------------------------------------------
 # Styles texte & paragraphe / Blocs visuels 
@@ -288,7 +276,16 @@ render_question <- function(doc, row, number, label_col_name, hint_col_name, cho
   if (is.null(row) || nrow(row) == 0) return(doc)
   q_type <- tolower(row$type %||% "")
   q_name <- row$name %||% ""
-  q_lab  <- str_replace_all(row[[label_col_name]] %||% q_name, "<.*?>", "") 
+  
+  # NETTOYAGE HTML AGRESSIF : supprime toutes les balises HTML et les caractères spéciaux HTML
+  clean_html <- function(text) {
+    text <- str_replace_all(text, "<[^>]+>", "")  # Supprime toutes les balises <...>
+    text <- str_replace_all(text, "&nbsp;", "")  # Supprime l'espace insécable HTML
+    text <- str_replace_all(text, "\\s+", " ")   # Normalise les espaces multiples en un seul
+    return(str_trim(text))                       # Retire les espaces au début/fin
+  }
+  
+  q_lab  <- clean_html(row[[label_col_name]] %||% q_name)
   
   if (is.na(q_name) || q_name %in% EXCLUDE_NAMES) return(doc)
   
@@ -303,7 +300,10 @@ render_question <- function(doc, row, number, label_col_name, hint_col_name, cho
   
   rel <- row$relevant %||% NA_character_
   h <- NA_character_
-  if (!is.na(hint_col_name) && hint_col_name %in% names(row)) { h <- row[[hint_col_name]] %||% NA_character_ }
+  if (!is.na(hint_col_name) && hint_col_name %in% names(row)) { 
+    h <- row[[hint_col_name]] %||% NA_character_ 
+    h <- clean_html(h) # Nettoyage du hint aussi
+  }
   
   if (!is.na(rel) && nzchar(rel)) { tr <- translate_relevant(rel, lab_map, full_choices_sheet, full_survey_sheet); doc <- body_add_fpar(doc, fpar(ftext("Afficher si : ", fp_relevant), ftext(tr, fp_relevant), fp_p = p_q_indent_fixed)) }
   if (!is.na(h) && nzchar(h)) { doc <- body_add_fpar(doc, fpar(ftext(h, fp_hint), fp_p = p_q_indent_fixed)) }
@@ -331,7 +331,7 @@ render_question <- function(doc, row, number, label_col_name, hint_col_name, cho
   }
   
   if (!str_detect(q_type, "^note|select_")) {
-    doc <- body_add_fpar(doc, fpar(ftext("________________________________________", fp_txt(size=FS_Q_BLUE)), fp_p = p_c_indent_fixed))
+    doc <- body_add_fpar(doc, fpar(ftext("__________________________________________________________", fp_txt(size=FS_Q_BLUE)), fp_p = p_c_indent_fixed))
   }
   
   doc <- body_add_par(doc, "")
@@ -426,6 +426,7 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, tem
     current_number <- NULL
     is_group <- str_starts(t, "begin_group") && !str_starts(t, "begin_repeat")
     is_repeat <- str_starts(t, "begin_repeat") || str_starts(t, "begin repeat")
+    is_repeat_end <- str_starts(t, "end_repeat") || str_starts(t, "end repeat")
     is_end <- str_starts(t, "end_group") || str_starts(t, "end group") || str_starts(t, "end_repeat") || str_starts(t, "end repeat")
     
     if (is_group || is_repeat) {
@@ -444,7 +445,9 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, tem
       }
       doc <- add_hrule(doc) ; next
     }
-    if (is_end) next
+    if (is_end) {doc <- body_add_fpar(doc, fpar(ftext("--- Fin du bloc de répétition ---", fp_hint), fp_p = p_default))
+    doc <- add_hrule(doc) # Ajoute une ligne de séparation
+    next }
     
     if(t != "note") q_id <- q_id + 1L
     
@@ -464,3 +467,7 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, tem
   message(glue("✅ Document généré : {final_path_display}"))
   invisible(out_docx)
 }
+library(xlsform2wordRev)
+# xlsform_to_wordRev()
+
+
