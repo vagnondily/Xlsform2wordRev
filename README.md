@@ -8,7 +8,7 @@ Le script est conçu pour générer une documentation de haute qualité du quest
 *   Formatage spécifique pour les différents types de questions (texte, numérique, date, sélection).
 *   Inclusion visuelle des listes de choix (options).
 *   Traduction des logiques de pertinence (`relevant logic`).
-*   Personnalisation des styles et ajout d'un logo.
+*   Personnalisation des styles au besoin.
 
 ## Prérequis
 
@@ -41,4 +41,9 @@ library(xlsform2wordRev)
 xlsform_to_wordRev()
 
 ```
+## Supprimer complètement le package (au besoin)
+```R
+remove.packages("xlsform2wordRev")
+.rs.restartR()  # dans RStudio
 
+```
