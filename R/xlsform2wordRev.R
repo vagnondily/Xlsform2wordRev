@@ -467,7 +467,8 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, tem
   message(glue("✅ Document généré : {final_path_display}"))
   invisible(out_docx)
 }
-library(xlsform2wordRev)
+#library(xlsform2wordRev)
 # xlsform_to_wordRev()
+
 
 
