@@ -16,6 +16,7 @@ Le script nécessite R ainsi que les packages suivants. Vous pouvez les installe
 
 ```R
 install.packages(c("readxl", "dplyr", "stringr", "tidyr", "purrr", "officer", "flextable", "glue", "tools", "tibble", "rlang"))
+
 library(readxl)
 library(dplyr)
 library(stringr)
@@ -27,6 +28,13 @@ library(glue)
 library(tools)
 library(tibble)
 library(rlang)
+
+suppressPackageStartupMessages({
+  library(readxl); library(dplyr); library(stringr); library(tidyr)
+  library(purrr);  library(officer); library(flextable); library(glue); library(tools)
+  library(tibble); library(rlang)
+})
+
 
 ## Installation (GitHub)
 
