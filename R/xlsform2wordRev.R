@@ -195,8 +195,8 @@ translate_relevant <- function(expr, labels, choices, df_survey) {
   txt <- stringr::str_replace_all(txt, "\\bor\\b",  " ou "); 
   txt <- stringr::str_replace_all(txt, "\\bnot\\b", " non "); 
   
-  txt <- stringr::str_replace_all(txt, "\\s*=\\s*", " est égal à ");
   txt <- stringr::str_replace_all(txt, "\\s*!=\\s*", " est différent de ");
+  txt <- stringr::str_replace_all(txt, "\\s*=\\s*", " est égal à ");
   txt <- stringr::str_replace_all(txt, "\\s*>\\s*", " est supérieur à ");
   txt <- stringr::str_replace_all(txt, "\\s*>=\\s*", " est supérieur ou égal à ");
   txt <- stringr::str_replace_all(txt, "\\s*<\\s*", " est inférieur à ");
@@ -469,6 +469,7 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, tem
 }
 #library(xlsform2wordRev)
 # xlsform_to_wordRev()
+
 
 
 
