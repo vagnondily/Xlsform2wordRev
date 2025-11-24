@@ -21,7 +21,7 @@ install.packages(c("readxl", "dplyr", "stringr", "tidyr", "purrr", "officer", "f
 
 ```r
 install.packages("remotes")
-remotes::install_github("vagnondily/Xlsform2wordRev")
+remotes::install_github("vagnondily/Xlsform2wordRev", dependencies = TRUE)
 
 ```
 
