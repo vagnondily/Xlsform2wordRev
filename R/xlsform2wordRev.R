@@ -47,7 +47,19 @@ EXCLUDE_NAMES <- c("start","end","today","deviceid","username","instanceID","ins
 XLSFORM_PATH   <- NULL
 TEMPLATE_DOCX  <- ""  
 LOGO_PATH  <- "cp_logo.png"    
-OUTPUT_DIR <- "C:/Users/manantsoa.vagnondily/Downloads/"
+get_downloads_dir <- function() {
+  if (Sys.info()["sysname"] == "Windows") {
+    # Sur Windows, utilise la variable d'environnement USERPROFILE et ajoute 'Downloads'
+    return(file.path(Sys.getenv("USERPROFILE"), "Downloads"))
+  } else {
+    # Sur macOS/Linux, utilise la variable d'environnement HOME et ajoute 'Downloads'
+    return(file.path(Sys.getenv("HOME"), "Downloads"))
+  }
+}
+
+OUTPUT_DIR <- get_downloads_dir()
+# Nettoyage supplémentaire au cas où le chemin détecté ne serait pas parfait
+OUTPUT_DIR <- normalizePath(OUTPUT_DIR, winslash = "/") 
 
 
 # ---------------------------------------------------------------------
@@ -93,34 +105,132 @@ detect_hint_col <- function(df) {
   NA_character_
 }
 
-translate_relevant <- function(expr, labels, choices) {
+library(dplyr)
+library(stringr)
+# Assurez-vous que la fonction detect_label_col est définie quelque part avant d'exécuter ceci
+
+# Assurez-vous que dplyr et stringr sont chargés : library(dplyr); library(stringr)
+
+translate_relevant <- function(expr, labels, choices, df_survey) {
   if (is.null(expr) || is.na(expr) || !nzchar(trimws(expr))) return(NA_character_)
   txt <- expr
-  get_choice_label <- function(code){
-    # Filtrer spécifiquement pour le code donné
-    r <- choices %>% filter(name == code)
-    
+  
+  # Nettoyage initial des dataframes (au cas où ils ne seraient pas propres)
+  choices <- choices %>% mutate(
+    name = tolower(str_trim(as.character(name))),
+    list_name = tolower(str_trim(as.character(list_name)))
+  )
+  df_survey <- df_survey %>% mutate(
+    name = tolower(str_trim(as.character(name)))
+  )
+  
+  get_choice_label <- function(code, list_name){
+    code_clean <- tolower(str_trim(as.character(code)))
+    list_name_clean <- tolower(str_trim(as.character(list_name)))
+    r <- choices %>% filter(name == code_clean & list_name == list_name_clean)
     if (nrow(r) > 0) {
       label_col_name_choices <- detect_label_col(choices)
       if (!is.na(label_col_name_choices)) {
-        # Correction V2: Extrait la première valeur de la colonne ciblée explicitement
-        lab_val <- as.character(r[[label_col_name_choices]])[1] 
+        lab_val <- as.character(r[[label_col_name_choices]]) 
         lab <- lab_val %||% as.character(code)
       } else {
-        lab <- as.character(r$name)[1] %||% as.character(code)
+        lab <- as.character(r$name) %||% as.character(code)
       }
-      return(lab) # Renvoie une seule valeur de longueur 1
-    } else return(as.character(code))
+      return(lab)
+    } else { return(as.character(code)) }
   }
-  get_var_label <- function(v){ val <- tryCatch(labels[[v]], error = function(e) NULL); if(is.null(val) || is.na(val) || !nzchar(val)) return(as.character(v)) else return(as.character(val)) }
   
-  # Les fonctions de remplacement utilisent vapply qui gère correctement les vecteurs si les sous-fonctions sont scalaires
-  txt <- stringr::str_replace_all(txt, "selected\\s*\\(\\s*\\$\\{[^}]+\\}\\s*,\\s*'[^']+'\\s*\\)", function(x){ m <- stringr::str_match(x, "selected\\s*\\(\\s*\\$\\{([^}]+)\\}\\s*,\\s*'([^']+)'\\s*\\)"); vars <- m[,2]; codes <- m[,3]; vapply(seq_along(vars), function(i){ sprintf("%s contient '%s'", get_var_label(vars[i]), get_choice_label(codes[i]))}, character(1)) })
-  txt <- stringr::str_replace_all(txt, "not\\s*\\(\\s*selected\\s*\\(\\s*\\$\\{[^}]+\\}\\s*,\\s*'[^']+?'\\s*\\)\\s*\\)", function(x){ m <- stringr::str_match(x, "not\\s*\\(\\s*selected\\s*\\(\\s*\\$\\{([^}]+)\\}\\s*,\\s*'([^']+)'\\s*\\)\\s*\\)"); vars <- m[,2]; codes <- m[,3]; vapply(seq_along(vars), function(i){ sprintf("%s ne contient pas '%s'", get_var_label(vars[i]), get_choice_label(codes[i]))}, character(1)) })
-  txt <- stringr::str_replace_all(txt, "\\$\\{[^}]+\\}", function(x){ m <- stringr::str_match(x, "\\$\\{([^}]+)\\}"); vars <- m[,2]; vapply(vars, get_var_label, character(1)) })
-  txt <- stringr::str_replace_all(txt, "\\bandand\\b", "et"); txt <- stringr::str_replace_all(txt, "\\bor\\b",  "ou"); txt <- stringr::str_replace_all(txt, "\\bnot\\b", "non"); txt <- stringr::str_replace_all(txt, "=\\s*'1'",  " = 'Oui'"); txt <- stringr::str_replace_all(txt, "=\\s*'0'",  " = 'Non'"); txt <- stringr::str_replace_all(txt, "!=\\s*'1'", " ≠ 'Oui'"); txt <- stringr::str_replace_all(txt, "!=\\s*'0'", " ≠ 'Non'"); txt <- stringr::str_replace_all(txt, "count-selected\\s*\\(\\s*[^\\)]+\\)\\s*>=\\s*1", function(x){ m <- stringr::str_match(x, "count-selected\\s*\\(\\s*(.+?)\\s*\\)\\s*>=\\s*1"); v <- m[,2]; vapply(v, function(z) sprintf("au moins une option cochée pour %s", z), character(1)) })
-  txt
+  # Fonction pour obtenir le label de la variable (Nettoyage HTML inclus)
+  get_var_label <- function(v){ 
+    val <- tryCatch(labels[[v]], error = function(e) NULL)
+    if(is.null(val) || is.na(val) || !nzchar(val)) {
+      clean_val <- as.character(v)
+    } else {
+      # Supprimez tout le HTML ici (<.*?>)
+      clean_val <- str_replace_all(as.character(val), "<.*?>", "")
+    }
+    return(clean_val) 
+  }
+  
+  get_listname_from_varname <- function(var_name, survey_df) {
+    var_name_clean <- tolower(str_trim(as.character(var_name)))
+    row <- survey_df %>% filter(name == var_name_clean)
+    if (nrow(row) > 0) {
+      type_val <- tolower(as.character(row$type))
+      list_name <- stringr::str_replace(type_val, "^select_(one|multiple)\\s+", "")
+      if (list_name == type_val) { return(NA_character_) }
+      return(str_trim(list_name))
+    } else { return(NA_character_) }
+  }
+  
+  # --- Substitutions principales ---
+  # Le reste du code effectue les remplacements d'opérateurs et de fonctions.
+  
+  # Remplacement pour 'selected()'
+  txt <- stringr::str_replace_all(txt, "selected\\s*\\(\\s*\\$\\{[^}]+\\}\\s*,\\s*'[^']+'\\s*\\)", function(x){ 
+    m <- stringr::str_match(x, "selected\\s*\\(\\s*\\$\\{([^}]+)\\}\\s*,\\s*'([^']+)'\\s*\\)")
+    vars <- m[,2]; codes <- m[,3]
+    vapply(seq_along(vars), function(i){
+      current_listname <- get_listname_from_varname(vars[i], df_survey)
+      choice_label <- get_choice_label(codes[i], current_listname)
+      sprintf("Pour '%s', l'option '%s' est sélectionnée", get_var_label(vars[i]), choice_label)
+    }, character(1)) 
+  })
+  
+  # Remplacement pour 'not(selected())'
+  txt <- stringr::str_replace_all(txt, "not\\s*\\(\\s*selected\\s*\\(\\s*\\$\\{[^}]+\\}\\s*,\\s*'[^']+?'\\s*\\)\\s*\\)", function(x){ 
+    m <- stringr::str_match(x, "not\\s*\\(\\s*selected\\s*\\(\\s*\\$\\{([^}]+)\\}\\s*,\\s*'([^']+)'\\s*\\)\\s*\\)")
+    vars <- m[,2]; codes <- m[,3]
+    vapply(seq_along(vars), function(i){
+      current_listname <- get_listname_from_varname(vars[i], df_survey)
+      choice_label <- get_choice_label(codes[i], current_listname)
+      sprintf("Pour '%s', l'option '%s' n'est PAS sélectionnée", get_var_label(vars[i]), choice_label)
+    }, character(1)) 
+  })
+  
+  # Remplacement des variables simples (${nom_variable}) par leur label
+  txt <- stringr::str_replace_all(txt, "\\$\\{[^}]+\\}", function(x){ 
+    m <- stringr::str_match(x, "\\$\\{([^}]+)\\}")
+    vars <- m[,2]
+    vapply(vars, get_var_label, character(1)) 
+  })
+  
+  # Remplacement des opérateurs logiques et mathématiques
+  # CES REMPLACEMENTS NE DEVRAIENT S'APPLIQUER QU'À LA LOGIQUE RELEVANT, PAS AUX LABELS DE QUESTIONS
+  txt <- stringr::str_replace_all(txt, "\\bandand\\b", " et "); 
+  txt <- stringr::str_replace_all(txt, "\\bor\\b",  " ou "); 
+  txt <- stringr::str_replace_all(txt, "\\bnot\\b", " non "); 
+  
+  txt <- stringr::str_replace_all(txt, "\\s*=\\s*", " est égal à ");
+  txt <- stringr::str_replace_all(txt, "\\s*!=\\s*", " est différent de ");
+  txt <- stringr::str_replace_all(txt, "\\s*>\\s*", " est supérieur à ");
+  txt <- stringr::str_replace_all(txt, "\\s*>=\\s*", " est supérieur ou égal à ");
+  txt <- stringr::str_replace_all(txt, "\\s*<\\s*", " est inférieur à ");
+  txt <- stringr::str_replace_all(txt, "\\s*<=\\s*", " est inférieur ou égal à ");
+  
+  # Note : Les symboles '*' et '?' ne sont pas traduits ici, 
+  # mais dans votre exemple, ils ont été traduits car ils étaient dans la mauvaise fonction.
+  
+  # Remplacement des valeurs binaires Oui/Non
+  txt <- stringr::str_replace_all(txt, "'1'", "'Oui'"); 
+  txt <- stringr::str_replace_all(txt, "'0'", "'Non'"); 
+  
+  # Gère count-selected >= 1
+  txt <- stringr::str_replace_all(txt, "count-selected\\s*\\(\\s*[^\\)]+\\)\\s*>=\\s*1", function(x){ 
+    m <- stringr::str_match(x, "count-selected\\s*\\(\\s*(.+?)\\s*\\)\\s*>=\\s*1")
+    v <- m[,2]
+    vapply(v, function(z) sprintf("Au moins une option est cochée pour %s", z), character(1)) 
+  })
+  
+  # Nettoyage final pour une meilleure lisibilité
+  txt <- stringr::str_replace_all(txt, "\\(\\s*", "\\(");
+  txt <- stringr::str_replace_all(txt, "\\s*\\)", "\\)");
+  
+  return(txt)
 }
+
+
+
 
 # ---------------------------------------------------------------------
 # Styles texte & paragraphe / Blocs visuels 
@@ -174,7 +284,7 @@ add_placeholder_box <- function(doc, txt = "Réponse : [insérer votre réponse 
 # ---------------------------------------------------------------------
 # Rendu d’une question
 # ---------------------------------------------------------------------
-render_question <- function(doc, row, number, label_col_name, hint_col_name, choices_map, lab_map, full_choices_sheet){
+render_question <- function(doc, row, number, label_col_name, hint_col_name, choices_map, lab_map, full_choices_sheet,full_survey_sheet){
   if (is.null(row) || nrow(row) == 0) return(doc)
   q_type <- tolower(row$type %||% "")
   q_name <- row$name %||% ""
@@ -195,7 +305,7 @@ render_question <- function(doc, row, number, label_col_name, hint_col_name, cho
   h <- NA_character_
   if (!is.na(hint_col_name) && hint_col_name %in% names(row)) { h <- row[[hint_col_name]] %||% NA_character_ }
   
-  if (!is.na(rel) && nzchar(rel)) { tr <- translate_relevant(rel, lab_map, full_choices_sheet); doc <- body_add_fpar(doc, fpar(ftext("Afficher si : ", fp_relevant), ftext(tr, fp_relevant), fp_p = p_q_indent_fixed)) }
+  if (!is.na(rel) && nzchar(rel)) { tr <- translate_relevant(rel, lab_map, full_choices_sheet, full_survey_sheet); doc <- body_add_fpar(doc, fpar(ftext("Afficher si : ", fp_relevant), ftext(tr, fp_relevant), fp_p = p_q_indent_fixed)) }
   if (!is.na(h) && nzchar(h)) { doc <- body_add_fpar(doc, fpar(ftext(h, fp_hint), fp_p = p_q_indent_fixed)) }
   
   if (str_starts(q_type, "select_one")) { 
@@ -243,6 +353,7 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, tem
   if (!file.exists(xlsx)) stop("Fichier XLSForm introuvable : ", xlsx)
   message(glue("Lecture de l'XLSForm depuis: {basename(xlsx)}"))
   
+  # Les dataframes sont lus ici :
   survey   <- read_excel(xlsx, sheet = "survey")
   choices  <- read_excel(xlsx, sheet = "choices")
   settings <- tryCatch(read_excel(xlsx, sheet = "settings"), error = function(e) NULL)
@@ -288,7 +399,6 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, tem
   choices <- choices %>% 
     mutate_all(as.character) %>% 
     mutate_all(~ifelse(is.na(.), NA_character_, .)) %>%
-    # Nettoyage agressif ET conversion explicite en caractère
     mutate(list_name = as.character(str_trim(str_replace_all(tolower(list_name), "[[:space:]]+", ""))))
   
   label_col_choices <- detect_label_col(choices)
@@ -305,6 +415,7 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, tem
   message("Début de l'analyse des questions et de la génération du corps du document...")
   for (i in seq_len(nrow(survey))) {
     r <- survey[i, , drop = FALSE]
+    # ... (le reste de la boucle pour définir t, qname, etc.) ...
     t_raw <- as.character(r$type %||% "")
     t <- tolower(t_raw)
     qname <- as.character(r$name)
@@ -319,11 +430,18 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, tem
     
     if (is_group || is_repeat) {
       lbl <- r[[label_col_name]] %||% r$name %||% ""
+      
       if (is_group) {
         prev_type <- if (i > 1) tolower(as.character(survey$type[i - 1] %||% "")) else ""
         prev_is_group <- str_starts(prev_type, "begin_group") || str_starts(prev_type, "begin repeat")
         if ( !prev_is_group) { sec_id <- sec_id + 1L; sub_id <- 0L; q_id <- 0L; message(glue("-> Génération Section {sec_id}: {lbl}")); doc <- add_band(doc, glue("Section {sec_id} : {lbl}"), txt_fp = fp_sec_title) } else { sub_id <- sub_id + 1L; q_id <- 0L; message(glue("--> Génération Sous-section {sec_id}.{sub_id}: {lbl}")); doc <- add_band(doc, glue("Sous-section {sec_id}.{sub_id} : {lbl}"), txt_fp = fp_sub_title) }
       } else if (is_repeat) { message(glue("--> Génération Bloc Répétitif: {lbl}")); doc <- body_add_fpar(doc, fpar(ftext(glue("🔁 Bloc : {lbl}"), fp_block), fp_p = p_default)) }
+      rel <- r$relevant %||% NA_character_
+      if (!is.na(rel) && nzchar(rel)) { 
+        # Traduction de l'expression 'relevant' du groupe
+        tr <- translate_relevant(rel, lab_map, choices, survey); 
+        doc <- body_add_fpar(doc, fpar(ftext("Afficher si : ", fp_relevant), ftext(tr, fp_relevant), fp_p = p_q_indent_fixed)) 
+      }
       doc <- add_hrule(doc) ; next
     }
     if (is_end) next
@@ -336,7 +454,8 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, tem
       if (sub_id > 0) { current_number <- glue("{sec_id}.{sub_id}.{q_id}") } else if (sec_id > 0) { current_number <- glue("{sec_id}.{q_id}") }
     }
     
-    doc <- render_question(doc, r, current_number, label_col_name, hint_col_name, choices_map, lab_map, choices)
+    # APPEL CORRIGÉ : utilise 'choices' et 'survey' (qui existent localement)
+    doc <- render_question(doc, r, current_number, label_col_name, hint_col_name, choices_map, full_choices_sheet = choices, lab_map = lab_map, full_survey_sheet = survey)
   }
   
   print(doc, target = out_docx)
@@ -345,26 +464,3 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, tem
   message(glue("✅ Document généré : {final_path_display}"))
   invisible(out_docx)
 }
-
-# ---------------------------------------------------------------------
-# EXEMPLE D'UTILISATION 
-# ---------------------------------------------------------------------
-
-XLSFORM_PATH_INPUT <- "C:/Users/manantsoa.vagnondily/Downloads/SMP Process Survey Form_latest.xlsx" 
-OUTPUT_DIR_PATH <- "C:/Users/manantsoa.vagnondily/Downloads/" 
-LOGO_PATH_INPUT <- "cp_logo.png"
-TEMPLATE_DOCX_INPUT <- "" 
-
-if (file.exists(XLSFORM_PATH_INPUT)) {
-  xlsform_to_word6(
-    xlsx = XLSFORM_PATH_INPUT,
-    output_dir = OUTPUT_DIR_PATH,
-    template_docx = TEMPLATE_DOCX_INPUT,
-    logo_path = LOGO_PATH_INPUT,
-    doc_title = "Rendu du Questionnaire XLSForm"
-  )
-} else {
-  warning(glue("Le fichier XLSForm spécifié n'existe pas : {XLSFORM_PATH_INPUT}"))
-}
-
-
