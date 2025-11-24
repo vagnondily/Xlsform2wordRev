@@ -117,15 +117,18 @@ translate_relevant <- function(expr, labels, choices, df_survey) {
     name = tolower(str_trim(as.character(name))),
     list_name = tolower(str_trim(as.character(list_name)))
   )
-  df_survey <- df_survey %>% mutate(
-    name = tolower(str_trim(as.character(name)))
+  df_survey_clean <- df_survey %>% mutate(
+    name = tolower(str_trim(as.character(name))),
+    type = tolower(as.character(type))
   )
   
+  # Fonction pour obtenir le label de choix
   get_choice_label <- function(code, list_name){
     code_clean <- tolower(str_trim(as.character(code)))
     list_name_clean <- tolower(str_trim(as.character(list_name)))
     r <- choices %>% filter(name == code_clean & list_name == list_name_clean)
     if (nrow(r) > 0) {
+      # Utilise la détection dynamique de colonne de label pour 'choices'
       label_col_name_choices <- detect_label_col(choices)
       if (!is.na(label_col_name_choices)) {
         lab_val <- as.character(r[[label_col_name_choices]]) 
@@ -133,7 +136,8 @@ translate_relevant <- function(expr, labels, choices, df_survey) {
       } else {
         lab <- as.character(r$name) %||% as.character(code)
       }
-      return(lab)
+      # Nettoyage HTML du label de choix
+      return(str_replace_all(lab, "<.*?>", ""))
     } else { return(as.character(code)) }
   }
   
@@ -149,52 +153,97 @@ translate_relevant <- function(expr, labels, choices, df_survey) {
     return(clean_val) 
   }
   
+  # Fonction pour obtenir le list_name à partir du nom de variable
   get_listname_from_varname <- function(var_name, survey_df) {
     var_name_clean <- tolower(str_trim(as.character(var_name)))
-    row <- survey_df %>% filter(name == var_name_clean)
+    row <- survey_df %>% filter(name == var_name_clean) %>% head(1)
     if (nrow(row) > 0) {
       type_val <- tolower(as.character(row$type))
+      # Si le type est 'select_one mylist' ou 'select_multiple mylist'
       list_name <- stringr::str_replace(type_val, "^select_(one|multiple)\\s+", "")
-      if (list_name == type_val) { return(NA_character_) }
-      return(str_trim(list_name))
-    } else { return(NA_character_) }
+      final_list_name <- ifelse(
+        test = list_name == type_val, # Test si la substitution n'a rien changé
+        yes = as.character(row$list_name %||% NA_character_), # Utilise la colonne dédiée
+        no = list_name # Utilise le résultat de la substitution
+      )
+      
+      return(str_trim(final_list_name))
+      
+    } else { 
+      return(NA_character_) 
+    }
   }
-    
-  # Remplacement pour 'selected()'
+  
+  # --- Logique de traduction ---
+  
+  # 1. Remplacement pour 'selected()' (utilisé par select_multiple)
+  # Exemple: selected(${q1}, 'code')
   txt <- stringr::str_replace_all(txt, "selected\\s*\\(\\s*\\$\\{[^}]+\\}\\s*,\\s*'[^']+'\\s*\\)", function(x){ 
     m <- stringr::str_match(x, "selected\\s*\\(\\s*\\$\\{([^}]+)\\}\\s*,\\s*'([^']+)'\\s*\\)")
     vars <- m[,2]; codes <- m[,3]
     vapply(seq_along(vars), function(i){
-      current_listname <- get_listname_from_varname(vars[i], df_survey)
+      current_listname <- get_listname_from_varname(vars[i], df_survey_clean)
       choice_label <- get_choice_label(codes[i], current_listname)
-      sprintf("Pour '%s', l'option '%s' est sélectionnée", get_var_label(vars[i]), choice_label)
+      # Ajout d'une balise pour identification visuelle claire
+      sprintf("`%s` a l'option «%s» cochée", get_var_label(vars[i]), choice_label)
     }, character(1)) 
   })
   
-  # Remplacement pour 'not(selected())'
+  # 2. Remplacement pour 'not(selected())'
   txt <- stringr::str_replace_all(txt, "not\\s*\\(\\s*selected\\s*\\(\\s*\\$\\{[^}]+\\}\\s*,\\s*'[^']+?'\\s*\\)\\s*\\)", function(x){ 
     m <- stringr::str_match(x, "not\\s*\\(\\s*selected\\s*\\(\\s*\\$\\{([^}]+)\\}\\s*,\\s*'([^']+)'\\s*\\)\\s*\\)")
     vars <- m[,2]; codes <- m[,3]
     vapply(seq_along(vars), function(i){
-      current_listname <- get_listname_from_varname(vars[i], df_survey)
+      current_listname <- get_listname_from_varname(vars[i], df_survey_clean)
       choice_label <- get_choice_label(codes[i], current_listname)
-      sprintf("Pour '%s', l'option '%s' n'est PAS sélectionnée", get_var_label(vars[i]), choice_label)
+      sprintf("`%s` N'A PAS l'option «%s» cochée", get_var_label(vars[i]), choice_label)
     }, character(1)) 
   })
   
-  # Remplacement des variables simples (${nom_variable}) par leur label
+  # 3. Remplacement des comparaisons standard (utilisé par select_one)
+  # Exemple: ${q2} = 'code'
+  # On cherche d'abord les expressions complètes de comparaison pour extraire les labels
+  
+  # Regex pour trouver les comparaisons: ${var} OP 'code'
+  comparison_regex <- "\\$\\{[^}]+\\}\\s*[=><!]+\\s*('|\")?[^'\"]+('|\")?"
+  
+  txt <- stringr::str_replace_all(txt, comparison_regex, function(comp_expr) {
+    # Extraire la variable et le code de l'expression trouvée
+    var_match <- str_match(comp_expr, "\\$\\{([^}]+)\\}")
+    var_name <- var_match[, 2]
+    
+    code_match <- str_match(comp_expr, "('|\")?([^'\"]+)('|\")?$")
+    code_val <- code_match[, 3]
+    
+    # Trouver le list_name associé à cette variable
+    current_listname <- get_listname_from_varname(var_name, df_survey_clean)
+    
+    # Trouver le label du choix
+    choice_label <- get_choice_label(code_val, current_listname)
+    
+    # Reconstruire l'expression avec les labels (sans les opérateurs logiques pour le moment)
+    reconstructed_expr <- sprintf("`%s` a la valeur «%s»", get_var_label(var_name), choice_label)
+    
+    # Remplacer l'opérateur dans l'expression reconstruite (simplification temporaire)
+    reconstructed_expr <- str_replace(reconstructed_expr, "\\s*=\\s*", " est égal à ")
+    reconstructed_expr <- str_replace(reconstructed_expr, "\\s*!=\\s*", " est différent de ")
+    # Ajoutez d'autres opérateurs si nécessaire ici, mais ils sont gérés plus bas de toute façon.
+    
+    return(reconstructed_expr)
+  })
+  
+  # 4. Remplacement des variables simples (${nom_variable}) par leur label
+  # Cela gère les variables qui restent après les remplacements précédents (e.g., dans les calculs)
   txt <- stringr::str_replace_all(txt, "\\$\\{[^}]+\\}", function(x){ 
     m <- stringr::str_match(x, "\\$\\{([^}]+)\\}")
     vars <- m[,2]
     vapply(vars, get_var_label, character(1)) 
   })
   
-  # Remplacement des opérateurs logiques et mathématiques
-  # CES REMPLACEMENTS NE DEVRAIENT S'APPLIQUER QU'À LA LOGIQUE RELEVANT, PAS AUX LABELS DE QUESTIONS
+  # 5. Remplacement des opérateurs logiques et mathématiques restants
   txt <- stringr::str_replace_all(txt, "\\bandand\\b", " et "); 
   txt <- stringr::str_replace_all(txt, "\\bor\\b",  " ou "); 
   txt <- stringr::str_replace_all(txt, "\\bnot\\b", " non "); 
-  
   txt <- stringr::str_replace_all(txt, "\\s*!=\\s*", " est différent de ");
   txt <- stringr::str_replace_all(txt, "\\s*=\\s*", " est égal à ");
   txt <- stringr::str_replace_all(txt, "\\s*>\\s*", " est supérieur à ");
@@ -202,7 +251,7 @@ translate_relevant <- function(expr, labels, choices, df_survey) {
   txt <- stringr::str_replace_all(txt, "\\s*<\\s*", " est inférieur à ");
   txt <- stringr::str_replace_all(txt, "\\s*<=\\s*", " est inférieur ou égal à ");
   
-  # Gère count-selected >= 1
+  # 6. Gère count-selected >= 1
   txt <- stringr::str_replace_all(txt, "count-selected\\s*\\(\\s*[^\\)]+\\)\\s*>=\\s*1", function(x){ 
     m <- stringr::str_match(x, "count-selected\\s*\\(\\s*(.+?)\\s*\\)\\s*>=\\s*1")
     v <- m[,2]
@@ -210,8 +259,10 @@ translate_relevant <- function(expr, labels, choices, df_survey) {
   })
   
   # Nettoyage final pour une meilleure lisibilité
-  txt <- stringr::str_replace_all(txt, "\\(\\s*", "\\(");
-  txt <- stringr::str_replace_all(txt, "\\s*\\)", "\\)");
+  txt <- str_replace_all(txt, "\\s*\\(\\s*", "\\(") %>%
+    str_replace_all("\\s*\\)\\s*", "\\)") %>%
+    str_replace_all("\\s+", " ") %>% # Normalise les espaces
+    str_trim()
   
   return(txt)
 }
@@ -465,6 +516,7 @@ xlsform_to_wordRev <- function(xlsx = XLSFORM_PATH, output_dir = OUTPUT_DIR, tem
 }
 #library(xlsform2wordRev)
 # xlsform_to_wordRev()
+
 
 
 
